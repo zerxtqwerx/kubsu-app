@@ -30,7 +30,7 @@ jobs:
         run: |
           docker run --rm \
             --network host \
-            -e DATABASE_URL=postgresql+psycopg://kubsu:kubsu@127.0.0.1:5432/kubsu \
+            -e DATABASE_URL=postgresql+asyncpg://kubsu:kubsu@127.0.0.1:5432/kubsu \
             -v ${{ github.workspace }}/tests:/app/tests \
             kubsu-app:ci \
             sh -c "pip install '.[test]' && python -m pytest tests -v"
@@ -64,5 +64,5 @@ jobs:
             --name kubsu-app \
             --network host \
             --restart unless-stopped \
-            -e DATABASE_URL=postgresql+psycopg://kubsu:kubsu@127.0.0.1:5432/kubsu \
+            -e DATABASE_URL=postgresql+asyncpg://kubsu:kubsu@127.0.0.1:5432/kubsu \
             localhost/kubsu-app:latest
