@@ -1,0 +1,68 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: Run tests in built image
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kubsu
+          POSTGRES_PASSWORD: kubsu
+          POSTGRES_DB: kubsu
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kubsu -d kubsu"
+          --health-interval 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t kubsu-app:ci .
+      - name: Run tests inside built image
+        run: |
+          docker run --rm \
+            --network host \
+            -e DATABASE_URL=postgresql+psycopg://kubsu:kubsu@127.0.0.1:5432/kubsu \
+            -v ${{ github.workspace }}/tests:/app/tests \
+            kubsu-app:ci \
+            sh -c "pip install '.[test]' && python -m pytest tests -v"
+
+  deploy:
+    name: Deploy to server
+    runs-on: self-hosted
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: podman build -t kubsu-app:latest .
+      - name: Restart app container
+        run: |
+          podman rm -f kubsu-app 2>/dev/null || true
+          podman rm -f kubsu-db 2>/dev/null || true
+          podman run -d \
+            --name kubsu-db \
+            --network host \
+            --restart unless-stopped \
+            -e POSTGRES_USER=kubsu \
+            -e POSTGRES_PASSWORD=kubsu \
+            -e POSTGRES_DB=kubsu \
+            -v pgdata:/var/lib/postgresql/data \
+            postgres:16-alpine
+          for i in $(seq 1 15); do
+            podman exec kubsu-db pg_isready -U kubsu -d kubsu && break
+            sleep 2
+          done
+          podman run -d \
+            --name kubsu-app \
+            --network host \
+            --restart unless-stopped \
+            -e DATABASE_URL=postgresql+psycopg://kubsu:kubsu@127.0.0.1:5432/kubsu \
+            localhost/kubsu-app:latest
