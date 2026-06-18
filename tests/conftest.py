@@ -14,9 +14,10 @@ async def init_db() -> None:
 
 
 @pytest_asyncio.fixture(scope='function')
-async def db() -> AsyncSession:
+async def db_session() -> AsyncSession:
     async with AsyncSessionLocal() as session:
         yield session
+        await session.rollback()
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -26,15 +27,15 @@ async def test_client():
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def clear_table(init_db, db: AsyncSession) -> None:
-    await db.execute(text("TRUNCATE users;"))
-    await db.commit()
+async def clear_table(init_db, db_session: AsyncSession) -> None:
+    await db_session.execute(text("TRUNCATE users;"))
+    await db_session.commit()
 
 
 @pytest_asyncio.fixture
-async def user(db: AsyncSession) -> User:
+async def user(db_session: AsyncSession) -> User:
     user = User(name="John Doe")
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
