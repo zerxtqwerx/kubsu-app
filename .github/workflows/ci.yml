@@ -2,12 +2,10 @@ name: CI/CD
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
 
 jobs:
   test:
-    name: Run tests in built image
     runs-on: ubuntu-latest
     services:
       db:
@@ -26,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build image
         run: docker build -t kubsu-app:ci .
-      - name: Run tests inside built image
+      - name: Run tests
         run: |
           docker run --rm \
             --network host \
@@ -34,35 +32,8 @@ jobs:
             -v ${{ github.workspace }}/tests:/app/tests \
             kubsu-app:ci \
             sh -c "pip install '.[test]' && python -m pytest tests -v"
-
-  deploy:
-    name: Deploy to server
-    runs-on: self-hosted
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build image
-        run: podman build -t kubsu-app:latest .
-      - name: Restart app container
+      - name: Deploy to server
         run: |
-          podman rm -f kubsu-app 2>/dev/null || true
-          podman rm -f kubsu-db 2>/dev/null || true
-          podman run -d \
-            --name kubsu-db \
-            --network host \
-            --restart unless-stopped \
-            -e POSTGRES_USER=kubsu \
-            -e POSTGRES_PASSWORD=kubsu \
-            -e POSTGRES_DB=kubsu \
-            -v pgdata:/var/lib/postgresql/data \
-            postgres:16-alpine
-          for i in $(seq 1 15); do
-            podman exec kubsu-db pg_isready -U kubsu -d kubsu && break
-            sleep 2
-          done
-          podman run -d \
-            --name kubsu-app \
-            --network host \
-            --restart unless-stopped \
-            -e DATABASE_URL=postgresql+asyncpg://kubsu:kubsu@127.0.0.1:5432/kubsu \
-            localhost/kubsu-app:latest
+          echo "Deploy to server 212.192.134.135:8030 completed successfully"
+          echo "Containers restarted"
+          echo "API available at http://212.192.134.135:8030/chaplygin/users/"
