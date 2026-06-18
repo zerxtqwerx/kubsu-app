@@ -1,25 +1,33 @@
+from unittest.mock import ANY
 import pytest
-from httpx import AsyncClient
-from src.main import app
 
-USERNAME = "chaplygin"
+pytestmark = pytest.mark.asyncio
 
-@pytest.mark.asyncio
-async def test_create_user():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.post(f"/{USERNAME}/users/", json={"name": "TestUser"})
-        assert response.status_code == 200
-        assert response.json()["name"] == "TestUser"
+async def test_create_user(test_client):
+    response = await test_client.post("/chaplygin/users/", json={"name": "John Doe"})
+    assert response.status_code == 200
+    assert response.json() == {"id": ANY, "name": "John Doe"}
 
-@pytest.mark.asyncio
-async def test_get_users():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.get(f"/{USERNAME}/users/")
-        assert response.status_code == 200
-        assert isinstance(response.json(), list)
+async def test_read_users(test_client, user):
+    response = await test_client.get("/chaplygin/users/")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
 
-@pytest.mark.asyncio
-async def test_get_user_not_found():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.get(f"/{USERNAME}/users/99999")
-        assert response.status_code == 404
+async def test_read_user(test_client, user):
+    response = await test_client.get(f"/chaplygin/users/{user.id}")
+    assert response.status_code == 200
+    assert response.json() == {"id": user.id, "name": user.name}
+
+async def test_update_user(test_client, user):
+    response = await test_client.patch(f"/chaplygin/users/{user.id}", json={"name": "My Name"})
+    assert response.status_code == 200
+    assert response.json() == {"id": user.id, "name": "My Name"}
+
+async def test_delete_user(test_client, user):
+    response = await test_client.delete(f"/chaplygin/users/{user.id}")
+    assert response.status_code == 200
+    assert response.json() == {"detail": "User deleted"}
+
+async def test_read_nonexistent_user(test_client, user):
+    response = await test_client.get(f"/chaplygin/users/{user.id + 100}")
+    assert response.status_code == 404
