@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   test:
@@ -32,8 +32,5 @@ jobs:
             -v ${{ github.workspace }}/tests:/app/tests \
             kubsu-app:ci \
             sh -c "pip install '.[test]' && python -m pytest tests -v"
-      - name: Deploy to server
-        run: |
-          echo "Deploy to server 212.192.134.135:8030 completed successfully"
-          echo "Containers restarted"
-          echo "API available at http://212.192.134.135:8030/chaplygin/users/"
+      - name: Trigger deploy
+        run: curl -X POST http://212.192.134.135:60080/deploy
