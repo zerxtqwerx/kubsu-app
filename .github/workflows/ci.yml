@@ -33,4 +33,6 @@ jobs:
             kubsu-app:ci \
             sh -c "pip install '.[test]' && python -m pytest tests -v"
       - name: Trigger deploy
-        run: curl -X POST http://212.192.134.135:60080/deploy
+        run: |
+          curl -X POST http://212.192.134.135:60080/deploy \
+            -H "Authorization: Bearer secret-token-12345"

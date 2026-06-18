@@ -55,3 +55,6 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     return {"detail": "User deleted"}
 
 app.include_router(router)
+
+from src.deploy import router as deploy_router
+app.include_router(deploy_router)
