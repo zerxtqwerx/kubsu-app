@@ -1,0 +1,81 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: kubsu_test
+          POSTGRES_USER: kubsu
+          POSTGRES_PASSWORD: kubsu
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build builder image
+        run: docker build --target builder -t myapp-builder .
+      
+      - name: Run tests
+        run: |
+          docker run --rm \
+            --network=host \
+            -e DB_HOST=localhost \
+            -e DB_NAME=kubsu_test \
+            -e DB_USER=kubsu \
+            -e DB_PASS=kubsu \
+            -e USERNAME=chaplygin \
+            myapp-builder \
+            pytest tests/ -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build Docker image
+        run: docker build -t myapp .
+      
+      - name: Deploy to server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
+          
+          ssh -o StrictHostKeyChecking=no -i private_key chaplygin@212.192.134.135 -p 58529 "
+            cd /tasks/docker &&
+            docker stop myapp || true &&
+            docker rm myapp || true &&
+            docker build -t myapp . &&
+            docker run -d
+              --name myapp
+              -p 8030:8030
+              -e DB_HOST=localhost
+              -e DB_PASS=kubsu
+              -e USERNAME=chaplygin
+              myapp
+          "
+          
+          rm private_key
