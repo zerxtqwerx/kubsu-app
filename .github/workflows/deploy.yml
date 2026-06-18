@@ -18,7 +18,7 @@ jobs:
           host: 212.192.134.135
           username: chaplygin
           port: 58529
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /home/chaplygin/tasks/docker
             git pull origin master || git pull origin main
